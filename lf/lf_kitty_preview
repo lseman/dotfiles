@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+file=$1
+w=$2
+h=$3
+x=$4
+y=$5
+
+filetype="$( file -Lb --mime-type "$file")"
+
+if [[ "$filetype" =~ ^image ]]; then
+    #nsxiv "$file"
+    kitty +kitten icat --silent --stdin no --transfer-mode file --place "${w}x${h}@${x}x${y}" "$file" < /dev/null > /dev/tty
+    exit 1
+elif [[ "$filetype" =~ ^text ]]; then
+    bat --color=always "$file"
+#        kitty @ launch --type=overlay bat --color=always "$file"
+    exit 1
+elif [[ "$filetype" =~ ^application/pdf ]]; then
+    pdftotext "$file" - | bat --color=always
+elif [[ "$filetype" =~ ^application/zip ]]; then
+    unzip -l "$file"
+elif [[ "$filetype" =~ ^application/gzip ]]; then
+    tar -tf "$file"
+fi
+
+#rifle "$file"

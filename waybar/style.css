@@ -1,0 +1,163 @@
+@import "macchiato.css";
+
+/* margin: top right bottom left */
+/* Spacing outside the element */
+
+/* padding: top right bottom left */
+/* Spacing inside the element */
+
+* {
+  font-family: Ubuntu Nerd Font;
+  font-size: 14px;
+}
+
+#custom-AtoB {
+    margin: 7px 0px 10px 0px;
+    background: @surface1;
+    color: @overlay2;
+    font-size: 25px;
+}
+
+
+#custom-BtoC {
+    margin: 7px 0px 10px 0px;
+    background: #090713;
+    color: @surface1;
+    font-size: 25px;
+}
+
+#custom-AtoB2 {
+    margin: 7px 0px 10px 0px;
+    background: @surface1;
+    color: @overlay2;
+    font-size: 25px;
+}
+
+
+#custom-BtoC2 {
+    margin: 7px 0px 10px 0px;
+    background: #090713;
+    color: @surface1;
+    font-size: 25px;
+}
+
+window#waybar {
+  background-color: #1B1B1B;
+  color: @text;
+  border-radius: 0px;
+  margin: 16px 16px;
+}
+
+window#waybar.hidden {
+  opacity: 0.2;
+}
+
+#workspaces button {
+  color: #FBFCF8;
+  background: @background3;
+  border-radius: 8px;
+  padding: 0px 10px 0px 10px;
+  margin: 7px 5px 10px 5px;
+}
+
+#workspaces button.active {
+  color: #FBFCF8;
+  background: #090713;
+}
+
+#workspaces button:hover {
+  background: #182749;
+  color: #FBFCF8;
+}
+
+
+
+#tray {
+  background-color: #090713;
+  border-radius: 8px 0px 0px 8px;
+  padding: 0px 5px 0px 20px;
+}
+
+#language,
+#tray,
+#custom-launcher,
+#clock,
+#cpu,
+#temperature,
+#backlight,
+#network,
+#wireplumber,
+#memory,
+#custom-dunst,
+#custom-powermenu{
+  margin: 7px 0px 10px 0px;
+  color: @white;
+}
+
+#window,
+
+#custom-launcher {
+  color: @crust;
+  padding: 0px 20px 0px 20px;
+  margin: 7px 10px 10px 20px;
+  background-color: @flamingo;
+  border-radius: 8px;
+}
+
+#cpu {
+  border-radius: 8px 0px 0px 8px;
+  color: @crust;
+  background-color: @overlay2;
+  padding: 0px 5px 0px 20px;
+}
+
+#temperature{
+  margin: 7px 0px 10px 0px;
+  background-color: @surface1;
+  padding: 0px 5px 0px 5px;
+}
+
+#memory {
+  border-radius: 0px 8px 8px 0px;
+  color: #FFFFFF;
+  background-color: #090713;
+  padding: 0px 20px 0px 5px;
+}
+
+#custom-dunst {
+  padding: 0px 20px 0px 13px;
+  background-color: @sky;
+}
+
+#wireplumber {
+  padding: 0px 5px 0px 5px;
+  background-color: @surface1;
+}
+
+#language {
+  color: @crust;
+  padding: 0px 20px 0px 10px;
+  background-color: @overlay2;
+  border-radius: 0px 8px 8px 0px;
+}
+
+
+#clock {
+  color: @crust;
+  background-color: @flamingo;
+  border-radius: 8px;
+  margin: 7px 20px 10px 10px;
+  padding: 0px 20px 0px 20px;
+}
+
+#custom-powermenu {
+  padding: 0px 25px 0px 20px;
+  margin: 7px 20px 10px 0px;
+  background-color: @maroon;
+}
+
+
+
+label:focus {
+  background-color: #000000;
+}
