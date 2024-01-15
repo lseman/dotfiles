@@ -1,0 +1,2 @@
+#!/bin/bash
+curl -s https://www.kernel.org | grep -A 1 'id="latest_link"' | awk 'NR==2' | grep -oP 'href="\K[^"]+'

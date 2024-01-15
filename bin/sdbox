@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# Install gum if not already installed
+if ! command -v gum &> /dev/null
+then
+    echo "ERROR: gum not found."
+fi
+# List existing containers and add option to create a new one
+# List existing containers with root privileges and add option to create a new one
+CONTAINERS=($(sudo ls /var/lib/machines))
+OPTIONS=("_new" "${CONTAINERS[@]}")
+CHOICE=$(gum filter "${OPTIONS[@]}")
+
+DEFAULT_OPTIONS="--bind=/dev/dri \
+    --bind-ro=/run/user/1000/ \
+    --bind=/run/user/1000/wayland-1 \
+    --bind-ro=/run/dbus \
+    --bind=/dev/dri/card0"
+
+# Check if user chose to create a new container
+if [[ $CHOICE == "_new" ]]; then
+    # Get container details
+    CONTAINER_NAME=$(gum input --placeholder "Enter container name")
+    #CHROOT_DIR=$(gum input --placeholder "Enter path to the chroot environment (e.g., /var/lib/machines/${CONTAINER_NAME})")
+    CHROOT_DIR="/var/lib/machines/${CONTAINER_NAME}"
+    USER_ID="1000"
+    #USER_ID=$(gum input --placeholder "Enter your user ID" --value "1000")
+
+    # Additional binds and options
+    read -p "Do you want to add additional binds? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]
+    then
+        ADD_BINDS=$(gum write --placeholder "Enter additional binds separated by space (e.g., --bind=/path1 --bind=/path2)")
+    else
+        ADD_BINDS=""
+    fi
+
+    # Install Arch Linux base system
+    echo "Installing Arch Linux base system to $CHROOT_DIR..."
+    sudo mkdir -p ${CHROOT_DIR}
+    sudo pacstrap -K -i -C /data/wtf/PKGBUILDs/pacman/pacman.conf ${CHROOT_DIR} base
+
+    # Set root password
+    echo "You will now enter the container to set the root password."
+    echo "Please set the root password using the 'passwd' command."
+    echo "Type 'exit' or press Ctrl+D when you are finished."
+    
+    sudo systemd-nspawn -D ${CHROOT_DIR}
+
+    # Create systemd-nspawn command
+    COMMAND="systemd-nspawn -b -D $CHROOT_DIR $DEFAULT_OPTIONS $ADD_BINDS"
+
+    # Confirmation
+    echo "The following command will be executed to create the container:"
+    echo $COMMAND
+    read -p "Proceed? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]
+    then
+        eval $COMMAND
+        echo "Container $CONTAINER_NAME created."
+    else
+        echo "Operation cancelled."
+    fi
+else
+    # Boot existing container
+    CONTAINER_NAME=$CHOICE
+    CHROOT_DIR="/var/lib/machines/$CONTAINER_NAME"
+    sudo systemd-nspawn -b -D ${CHROOT_DIR} $DEFAULT_OPTIONS
+fi
+
+

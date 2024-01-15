@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Use gum to ask for the SFTP host
+SFTP_HOST=$(gum input --placeholder "Enter SFTP Host")
+
+# Connect to the SFTP server and list files
+sftp_output=$(sftp ${SFTP_HOST} <<EOF
+ls
+EOF
+)
+
+selected_file=$(echo "$sftp_output" | fzf)
+
+sftp ${SFTP_HOST} <<EOF
+get $selected_file
+EOF
+
+# Output the selected file
+#echo "Selected file: $selected_file"

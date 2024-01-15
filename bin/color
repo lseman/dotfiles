@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Check if a file is provided
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <filename>"
+    exit 1
+fi
+
+# Function to convert hex color to 256-color code
+hex_to_256() {
+    local hex=$1
+    local r=$((16#${hex:1:2}))
+    local g=$((16#${hex:3:2}))
+    local b=$((16#${hex:5:2}))
+
+    # Calculate the nearest 256 color value
+    echo $((16 + (r / 51) * 36 + (g / 51) * 6 + b / 51))
+}
+
+filename=$1
+
+# Read the file line by line
+while IFS= read -r line; do
+    # Search for hex color patterns and process each match
+    if [[ $line =~ \#([0-9A-Fa-f]{6}) ]]; then
+        color_code=$(hex_to_256 ${BASH_REMATCH[0]})
+        echo -e "\e[38;5;${color_code}m${line}\e[0m"
+    else
+        echo "$line"
+    fi
+done < "$filename"
+

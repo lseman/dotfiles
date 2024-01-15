@@ -1,0 +1,211 @@
+#!/bin/bash
+
+merge_find() {
+    # Find start and end lines of conflicts
+    starts=$(rg --no-ignore -n "^<<<<<<<" | awk -F: '{print $1 ":" $2}')
+    ends=$(rg --no-ignore -n "^>>>>>>>" | awk -F: '{print $1 ":" $2}')
+
+    # Combine starts and ends, and calculate ranges
+    paste <(echo "$starts") <(echo "$ends") | awk -F'\t' '{
+        split($1, start, ":")
+        split($2, end, ":")
+        if (start[1] == end[1])
+            print start[1] ":" start[2] "-" end[2]
+    }'
+}
+
+handle_conflict() {
+    local file=$1
+    local start_line=$2
+    local end_line=$3
+
+    echo "Conflict in $file from line $start_line to $end_line."
+
+    echo $start_line
+    echo $end_line
+
+    start_range_all=$(($start_line > 5 ? $start_line - 5 : 1))
+    end_range_all=$(echo "$end_line + 5" | bc)
+    bat --style=numbers --color=always "$file" --line-range "$start_range_all:$end_range_all" --highlight-line "$start_line:$end_line"
+    echo "Options: [1] Accept Change, [2] Keep Current, [3] Accept Both, [4] Compare Changes:"
+    # print conflict to terminal
+    read -p "Choose an option (1/2/3/4): " choice
+    case $choice in
+    1)
+        # Accept Change
+        sed -i "$start_line,$end_line{/^<<</,/^>>>/ {/^<<</,/^===/d;/^>>>/d}}" $file
+        ;;
+    2)
+        # Keep Current
+        sed -i "$start_line,$end_line{/^<<</,/^>>>/ {/^<<</d;/^===/,/^>>>/d}}" $file
+        ;;
+    3)
+        # Accept Both Changes
+        sed -i "$start_line,$end_line{/^<<<<<<<\|^=======\|^>>>>>>>/{d}}" $file
+        ;;
+    4)
+        # Compare Changes
+        local current=$(sed -n "$start_line,/^=======/p" $file | sed '/^=======$/d')
+        local incoming=$(sed -n "/^=======/,${end_line}p" $file | sed '1d;/^>>>>>>>$/d')
+        echo "Current Change:"
+        echo "$current"
+        echo "Incoming Change:"
+        echo "$incoming"
+        read -p "Press Enter to manually resolve in editor..."
+        $EDITOR $file
+        ;;
+    *)
+        echo "Invalid option. Skipping this conflict."
+        ;;
+    esac
+}
+
+# Function to handle git add with fzf
+fit_add() {
+    # Get the list of files with their status
+    local files_status=$(git status -s)
+
+    # Display git status with minimalist symbols for each file status and use fzf for selection
+    local selected_files=$(echo "$files_status" | awk '{
+        status = substr($0, 1, 2);  # Extracts the first two characters (file status)
+        file = substr($0, 4);       # Extracts the rest of the line as the filename
+        if (status == "M ") printf "✓ %s\n", file;      # Staged modifications
+        else if (status == "??") printf "? %s\n", file;  # Untracked files
+        else if (status == " M") printf "✗ %s\n", file;   # Modified but not staged
+        else printf "? %s\n", file;  # Other statuses
+    }' | fzf --multi --preview 'git diff --color=always {2} | head -n 100' --preview-window=right:50%:wrap | awk -F' ' '{print $2}')
+
+    # Check each selected file and stage or unstage it based on its current status
+    echo "$selected_files" | while read -r file; do
+        if echo "$files_status" | grep -q "^M  $file"; then
+            # The file is modified and staged, so unstage it
+            git reset "$file"
+        elif echo "$files_status" | grep -q "^?? $file\|^ M $file"; then
+            # The file is modified but not staged, or it is untracked, so stage it
+            git add "$file"
+        fi
+    done
+}
+fit_commit() {
+    local TYPES=("fix" "feat" "docs" "style" "refactor" "test" "chore" "revert")
+    local COMMIT_TYPES=("fix:🐛" "feat:✨" "docs:📚" "style:💎" "refactor:🔨" "test:🧪" "chore:🚀" "revert:⏪")
+
+    TYPE=$(gum choose "${TYPES[@]}")
+    MESSAGE=$(gum input --placeholder "Commit message")
+
+    for i in "${!TYPES[@]}"; do
+        if [[ "${TYPES[i]}" == "$TYPE" ]]; then
+            git commit -m "${COMMIT_TYPES[i]} $MESSAGE"
+            break
+        fi
+    done
+}
+
+# Function to handle git log with fzf
+fit_log() {
+    git log --oneline | fzf --preview 'git show --color=always {1} | bat --color=always -l diff' --preview-window right:50%
+}
+
+# Function to handle git push
+fit_push() {
+    git push
+}
+
+fit_branch() {
+    # List all branches and use fzf for selection
+    local branch=$(git branch | sed 's/\* //g' | fzf)
+
+    # Check if a branch was selected
+    if [ -n "$branch" ]; then
+        # Switch to the selected branch
+        git checkout "$branch"
+    fi
+}
+
+fit_merge() {
+    # Find start and end lines of conflicts
+    starts=$(rg --no-ignore -n "^<<<<<<<" | awk -F: '{print $1 ":" $2}')
+    ends=$(rg --no-ignore -n "^>>>>>>>" | awk -F: '{print $1 ":" $2}')
+
+    # Combine starts and ends, and calculate ranges
+    paste <(echo "$starts") <(echo "$ends") | awk -F'\t' '{
+        split($1, start, ":")
+        split($2, end, ":")
+        if (start[1] == end[1])
+            print start[1] ":" start[2] "-" end[2]
+        }' | fzf --delimiter ":" --preview 'file={1}; start={2}; end=$(echo $start | cut -d"-" -f1); finish=$(echo $start | cut -d"-" -f2); /usr/bin/bat --style=numbers --color=always $file --line-range $(echo "$end - 10" | bc):$(echo "$finish + 10" | bc) --highlight-line $end:$finish'
+}
+fit_apply() {
+    local patch=$1
+    patch -Np1 --merge --no-backup-if-mismatch <$patch
+
+    readarray -t conflicts < <(merge_find)
+    for conflict in "${conflicts[@]}"; do
+        file=$(echo $conflict | cut -d ':' -f 1)
+        range=$(echo $conflict | cut -d ':' -f 2)
+        start_line=$(echo $range | cut -d '-' -f 1)
+        end_line=$(echo $range | cut -d '-' -f 2)
+
+        handle_conflict "$file" "$start_line" "$end_line"
+    done
+}
+
+fit_do() {
+    git add .
+    fit_commit
+    fit_push
+}
+
+#command handling
+case "$1" in
+add)
+    fit_add
+    ;;
+commit)
+    fit_commit
+    ;;
+log)
+    fit_log
+    ;;
+push)
+    fit_push
+    ;;
+branch)
+    fit_branch
+    ;;
+merge)
+    fit_merge
+    ;;
+apply)
+    fit_apply "$2"
+    ;;
+do)
+    fit_do "$2"
+    ;;
+*)
+    # Define ANSI color codes for better formatting
+    RED='\033[0;31m'
+    BOLD='\033[1m'
+    RESET='\033[0m'
+    BLUE='\033[0;34m'
+
+    # my data Laio O. Seman / <laio [at] ieee.org>
+    echo -e "${RED}${BOLD}fit${RESET} - fit is a git wrapper for fzf."
+    echo -e "  Version: 0.1.0"
+    echo -e "  Author: Laio O. Seman / <laio [at] ieee.org>"
+
+    # Print the usage message with color and formatting
+    echo -e "${RED}${BOLD}Usage:${RESET}"
+
+    # Explanation for each command
+    echo -e "  ${BLUE}${BOLD}fit add${RESET}: Add files to the staging area for the next commit."
+    echo -e "  ${BLUE}${BOLD}fit commit${RESET}: Commit the changes in the staging area."
+    echo -e "  ${BLUE}${BOLD}fit log${RESET}: Display the commit history."
+    echo -e "  ${BLUE}${BOLD}fit push${RESET}: Push the committed changes to a remote repository."
+    echo -e "  ${BLUE}${BOLD}fit branch${RESET}: List and manage branches."
+    echo -e "  ${BLUE}${BOLD}fit merge${RESET}: Interactively preview and handle merge conflicts."
+    echo -e "  ${BLUE}${BOLD}fit apply${RESET}: Apply a patch and interactively preview and handle merge conflicts."
+    echo -e "  ${BLUE}${BOLD}fit do${RESET}: Add, commit and push changes."
+
+    ;;
+esac

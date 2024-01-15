@@ -1,0 +1,12 @@
+#!/bin/bash
+# first check if there are tmux sessions
+# if there are, then list them and let the user pick one
+# if there aren't, then create a new session
+# if the user picks one, then attach to it
+
+if [ -z "$(tmux list-sessions)" ]; then
+    echo "No tmux sessions found. Exiting..."
+else
+    SESSION=$(tmux list-sessions -F \#S | gum filter --placeholder "Pick session...")
+    tmux switch-client -t "$SESSION" || tmux attach -t "$SESSION"
+fi

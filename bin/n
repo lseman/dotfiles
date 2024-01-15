@@ -1,0 +1,18 @@
+
+#!/bin/bash
+
+# Check if any arguments are passed
+if [ $# -eq 0 ]; then
+    # No arguments, use fzf to select a file
+    FILE=$(fzf)
+
+    # Check if a file was selected
+    if [ -n "$FILE" ]; then
+        nvim "$FILE"
+    else
+        echo "No file selected."
+    fi
+else
+    # Arguments passed, open the file(s) with nvim
+    nvim "$@"
+fi

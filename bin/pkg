@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Fetch the latest packages from Arch Linux's package feed
+url="https://archlinux.org/feeds/packages/"
+data=$(curl -s "$url")
+
+# Check if the data is valid XML
+    # Parse and format the latest 5 packages into a table
+    headers="Package | Link | Publish Date | Description"
+    dados=$(echo "$data" | xmlstarlet sel -t -m "//item[position() <= 100]" \
+        -v "concat(title, ' | ', link, ' | ', pubDate, ' | ', description)" -n 2>/dev/null)
+
+    # Combine headers and data, then format as a static table using gum
+    echo -e "$headers\n$dados" | gum table --separator="|" \
+		--widths 40,20,20,20

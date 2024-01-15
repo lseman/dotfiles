@@ -1,0 +1,167 @@
+#!/bin/bash
+
+ROOTDIR=/data/git/PKGBUILDs
+REPO=/data/repo/capybara.db.tar.gz
+cd $ROOTDIR
+PKGBUILDS=$(fd PKGBUILD)
+
+extract_variable() {
+    local pkgbuild_path=$1
+    local var_name=$2
+
+    # Use a subshell to source the PKGBUILD and echo the variable
+    local var_value=$(bash -c "source '$pkgbuild_path'; echo \"\$$var_name\"")
+
+    echo "$var_value"
+}
+
+check_git_updates() {
+    local git_url=$1
+    local temp_dir=$(mktemp -d)
+    local default_branch
+
+    git init "$temp_dir" &>/dev/null
+    git -C "$temp_dir" remote add origin "$git_url" &>/dev/null
+    gum spin --spinner dot --title "Checking for updates" -- git -C "$temp_dir" fetch origin
+
+    default_branch=$(git -C "$temp_dir" remote show origin | awk '/HEAD branch/ {print $NF}')
+    local commit_id=$(git -C "$temp_dir" rev-parse "origin/$default_branch")
+
+    rm -rf "$temp_dir"
+    echo $commit_id
+}
+
+process_directory() {
+    local GREEN="\033[0;32m"
+    local RED="\033[0;31m"
+    local YELLOW="\033[1;33m"
+    local NC="\033[0m" # No Color
+    local BLUE="\033[0;34m"
+
+    echo ""
+    echo -e "${BLUE} :: ${NC}Processing ${GREEN}$1...${NC}"
+    local directory=$1
+    directory=${directory/PKGBUILD/}
+    #echo -e "Directory is ${GREEN}$directory${NC}"
+    local pkgbuild_path="$ROOTDIR/${directory}/PKGBUILD"
+    local last_commit_file="$ROOTDIR/${directory}/.last_commit"
+    local last_commit
+
+    echo -e "${RED} => ${NC}PKGBUILD path: ${NC}$pkgbuild_path${NC}"
+
+    if [[ -f "$pkgbuild_path" ]]; then
+        url=$(extract_variable "$pkgbuild_path" "url")
+
+        if [[ -f "$last_commit_file" ]]; then
+            last_commit=$(cat "$last_commit_file")
+        fi
+        echo -e "${RED} => ${NC}Last commit: ${NC} $last_commit"
+        echo -e "${RED} => ${NC}URL: ${NC} $url"
+
+        if [[ -n "$url" ]]; then
+            commit_id=$(check_git_updates "$url")
+            echo -e "${RED} => ${NC}Commit ID: ${NC}$commit_id${NC}"
+            #echo -e "${YELLOW}Checking for updates...${NC}"
+            if [[ "$commit_id" != "$last_commit" ]]; then
+                echo -e "${GREEN}--------------------------------------------${NC}"
+                cd "$directory"
+                echo -e "${RED} => ${NC}Running makepkg...${NC}"
+                makepkg -sf --skippgpcheck --skipchecksums
+                repo-add -n -R /data/repo/capybara.db.tar.gz *.pkg.tar.xz && mv *.pkg.tar.xz /data/repo/
+                cd "$ROOTDIR"
+                echo "$commit_id" >"$last_commit_file"
+                echo -e "${GREEN}--------------------------------------------${NC}"
+            else
+                echo -e "${RED} => ${NC}No updates found.${NC}"
+            fi
+        else
+            echo -e "${RED}URL not found in PKGBUILD.${NC}"
+        fi
+    else
+        echo -e "${RED}PKGBUILD not found in $pkgbuild_path${NC}"
+    fi
+}
+
+process_pkgs_for_selection() {
+    local GREEN="\033[0;32m"
+    local RED="\033[0;31m"
+    local YELLOW="\033[1;33m"
+    local NC="\033[0m"            # No Color
+    local makepkg_args=("${@:2}") # Get all arguments after the first one (-s)
+    for PKGBUILD in $PKGBUILDS; do
+        PKGNAME=$(echo $PKGBUILD | cut -d'/' -f1)
+        printf "%-60s %s\n" "$PKGNAME" "$PKGBUILD"
+    done | fzf --height 40% --layout reverse | while read -r selected_line; do
+        selected_pkgname=$(echo $selected_line | awk '{print $1}')
+        selected_pkgbuild=$(echo $selected_line | awk '{print $2}')
+        echo "Selected PKGNAME is: $selected_pkgname"
+        echo "Selected PKGBUILD is: $selected_pkgbuild"
+
+        cd $selected_pkgname
+        makepkg -sf --skippgpcheck --skipchecksums --graphite=yes --mold=yes --add "${makepkg_args[@]}"
+    done
+}
+
+run_makepkg_on_all() {
+local GREEN="\033[0;32m"
+local RED="\033[0;31m"
+local YELLOW="\033[1;33m"
+local NC="\033[0m" 
+    # read file gitupdate.txt and process each line
+    while IFS= read -r line; do
+        cd $ROOTDIR/$line
+        echo -e "${YELLOW}Running makepkg...${NC}"
+        makepkg -sf --skippgpcheck --skipchecksums
+        repo-add -n -R /data/repo/capybara.db.tar.gz *.pkg.tar.xz
+        mv *.pkg.tar.xz /data/repo/
+    done <"$ROOTDIR/gitupdate.txt"
+}
+
+
+run_update_all() {
+    # read file gitupdate.txt and process each line
+    while IFS= read -r line; do
+        # Process each line
+        process_directory $line
+    done <"$ROOTDIR/gitupdate.txt"
+}
+
+run_clean_up() {
+    # ask for confirmation
+    echo -e "${RED} => ${NC}Are you sure you want to clean up? [y/N]"
+    read -r response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])+$ ]]; then
+        echo -e "${RED} => ${NC}Cleaning up..."
+    else
+        echo -e "${RED} => ${NC}Aborting..."
+        exit 1
+    fi
+
+    # read file gitupdate.txt and process each line
+    cd $ROOTDIR
+    find . -mindepth 2 -maxdepth 2 -type d ! -path "./.git" ! -path "./.git/*" ! -path "./linux/patches" ! -path "./linux/patches/*" -exec rm -rf {} +
+}
+
+
+# Define color codes
+GREEN="\033[0;32m"
+YELLOW="\033[1;33m"
+NC="\033[0m" # No Color
+RED="\033[0;31m"
+case "$1" in
+    -s) process_pkgs_for_selection "${@}" ;;
+    -u) run_makepkg_on_all "${@}" ;;
+    -c) run_update_all "${@}" ;;
+    -C) run_clean_up "${@}" ;;
+    *)
+        echo -e "${NC}Package selection script${NC}"
+        echo -e "${NC}Laio O. Seman <laio [dot] ieee.org>${NC}"
+        echo " "
+        echo -e "Options:"
+        echo -e "  ${RED}-${NC}s: Select packages to build"
+        echo -e "  ${RED}-${NC}u: Build all packages"
+        echo -e "  ${RED}-${NC}c: Check for updates"
+        echo -e "  ${RED}-${NC}C: Clean up"
+        exit 1
+        ;;
+esac

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+ENV_DIR="$HOME/env"
+
+echo "Activate Python Env"
+if [ ! -d "$ENV_DIR" ]; then
+    echo "Directory $ENV_DIR does not exist."
+    return 1
+fi
+
+echo "Available environments:"
+envs=($(ls $ENV_DIR))
+selected_env=$(printf "%s\n" "${envs[@]}" | fzf)
+
+if [ -z "$selected_env" ]; then
+    echo "No environment selected."
+    return 0
+fi
+
+source "$ENV_DIR/$selected_env/bin/activate"
+echo "Activated environment $selected_env"
+

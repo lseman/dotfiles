@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+# Consider adding the following to sudo file with `visudo` for smoother experience. 
+# Replace `user` with your user, `dev` with machine name.
+#   user ALL=(root) NOPASSWD: /usr/bin/systemd-run --pty -M dev --uid 1000 --quiet *
+
+USAGE="machine-shell MACHINE CMD [ARGS...]"
+
+#  show usage on empty args
+if [ $# -eq 0 ]; then
+    >&2 echo "usage:"
+    >&2 echo "  $USAGE"
+    exit 1
+fi
+
+machine="$1"
+shift
+ARGS=$@
+
+# default to sh on missing command
+if [ $# -eq 0 ]; then
+    ARGS="sh"
+fi
+
+# validate machine
+machinectl show $machine > /dev/null || exit 1
+
+sudo systemd-run --pty -M $machine --uid $(id -u) --quiet /usr/bin/env ls

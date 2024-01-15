@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Ensure gum is installed
+if ! command -v gum &> /dev/null
+then
+    echo "gum could not be found, please install it."
+    exit
+fi
+
+# Get list of running Docker containers
+containers=$(docker ps --format "{{.Names}}")
+
+# Check if there are running containers
+if [ -z "$containers" ]; then
+    echo "No running Docker containers found."
+    exit
+fi
+
+# Use gum to select a container
+selected_container=$(echo "$containers" | fzf --height=40% --prompt='Select Container: ')
+
+# List users in the selected container
+users=$(docker exec "$selected_container" awk -F: '{ print $1 }' /etc/passwd)
+
+# Check if there are users
+if [ -z "$users" ]; then
+    echo "No users found in the selected container."
+    exit
+fi
+
+# Use fzf to select a user
+custom_user=$(echo "$users" | fzf --height=40% --prompt='Select User: ')
+
+# Get the home directory of the selected user
+home_directory=$(docker exec "$selected_container" sh -c "grep ^$selected_user: /etc/passwd | cut -d: -f6")
+
+# Define custom shell and user
+custom_shell="/bin/fish" # or any shell like /bin/sh, /bin/zsh, etc.
+#custom_user="seman" # or any other user available in the container
+
+# Attach to the selected container
+docker exec -it -u "$custom_user" "$selected_container" "$custom_shell"

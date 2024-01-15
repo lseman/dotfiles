@@ -1,0 +1,82 @@
+#!/bin/bash
+
+# Define the path to the chroot environment
+#CHROOT_DIR="/var/lib/machines/sandbox"
+#USER_ID="1000"  # Adjust this to match your user ID
+#systemd-nspawn -b -D $CHROOT_DIR --bind=/dev/dri --bind-ro=/run/user/1000/ --bind=/run/user/1000/wayland-1 --bind-ro=/run/dbus --bind=/dev/dri --bind=/dev/dri/card0 --bind=/dev/dri/renderD128 --bind=/data/shared \
+#    --bind-ro=/usr/share/fonts --bind-ro=/usr/share/icons --bind-ro=/usr/share/themes --tmpfs=/run/user/1000/dconf \
+#    --bind-ro=/home/seman/.themes
+# --network-veth
+
+#$CONTAINER=sandbox
+#tee /etc/systemd/system/systemd-nspawn@$CONTAINER.service.d/override.conf <<EOF
+#[Service]
+#DeviceAllow=char-ttyUSB rwm
+#EOF
+
+sudo systemd-nspawn --setenv=DISPLAY=:0 --setenv=XDG_RUNTIME_DIR=/run/user/1000 --setenv=WAYLAND_DISPLAY=wayland-1 \
+                    --setenv=GBM_BACKEND=nvidia-drm --setenv=LIBVA_DRIVER_NAME=nvidia --setenv=__GLX_VENDOR_LIBRARY_NAME=nvidia --setenv=NVD_BACKEND=egl \
+                    --bind=/run/user/1000/ --bind-ro=/run/user/1000/bus --bind=/run/user/1000/wayland-1 --bind-ro=/run/dbus \
+                    --bind=/run/user/1000/dconf \
+                    -b -D /var/lib/machines/sandbox \
+                    --bind=/dev/dri \
+                    --bind=/dev/shm \
+                    --bind=/dev/nvidia0 \
+                    --bind=/dev/nvidiactl \
+                    --bind=/dev/nvidia-modeset \
+                    --bind=/usr/bin/nvidia-bug-report.sh:/usr/bin/nvidia-bug-report.sh \
+                    --bind=/usr/bin/nvidia-cuda-mps-control:/usr/bin/nvidia-cuda-mps-control \
+                    --bind=/usr/bin/nvidia-cuda-mps-server:/usr/bin/nvidia-cuda-mps-server \
+                    --bind=/usr/bin/nvidia-debugdump:/usr/bin/nvidia-debugdump \
+                    --bind=/usr/bin/nvidia-modprobe:/usr/bin/nvidia-modprobe \
+                    --bind=/usr/bin/nvidia-ngx-updater:/usr/bin/nvidia-ngx-updater \
+                    --bind=/usr/bin/nvidia-persistenced:/usr/bin/nvidia-persistenced \
+                    --bind=/usr/bin/nvidia-powerd:/usr/bin/nvidia-powerd \
+                    --bind=/usr/bin/nvidia-sleep.sh:/usr/bin/nvidia-sleep.sh \
+                    --bind=/usr/bin/nvidia-smi:/usr/bin/nvidia-smi \
+                    --bind=/usr/bin/nvidia-xconfig:/usr/bin/nvidia-xconfig \
+                    --bind=/usr/lib/gbm/nvidia-drm_gbm.so:/usr/lib/gbm/nvidia-drm_gbm.so \
+                    --bind=/usr/lib/libEGL_nvidia.so:/usr/lib/libEGL_nvidia.so \
+                    --bind=/usr/lib/libGLESv1_CM_nvidia.so:/usr/lib/libGLESv1_CM_nvidia.so \
+                    --bind=/usr/lib/libGLESv2_nvidia.so:/usr/lib/libGLESv2_nvidia.so \
+                    --bind=/usr/lib/libGLX_nvidia.so:/usr/lib/libGLX_nvidia.so \
+                    --bind=/usr/lib/libcuda.so:/usr/lib/libcuda.so \
+                    --bind=/usr/lib/libnvcuvid.so:/usr/lib/libnvcuvid.so \
+                    --bind=/usr/lib/libnvidia-allocator.so:/usr/lib/libnvidia-allocator.so \
+                    --bind=/usr/lib/libnvidia-cfg.so:/usr/lib/libnvidia-cfg.so \
+                    --bind=/usr/lib/libnvidia-egl-gbm.so:/usr/lib/libnvidia-egl-gbm.so \
+                    --bind=/usr/lib/libnvidia-eglcore.so:/usr/lib/libnvidia-eglcore.so \
+                    --bind=/usr/lib/libnvidia-encode.so:/usr/lib/libnvidia-encode.so \
+                    --bind=/usr/lib/libnvidia-fbc.so:/usr/lib/libnvidia-fbc.so \
+                    --bind=/usr/lib/libnvidia-glcore.so:/usr/lib/libnvidia-glcore.so \
+                    --bind=/usr/lib/libnvidia-glsi.so:/usr/lib/libnvidia-glsi.so \
+                    --bind=/usr/lib/libnvidia-glvkspirv.so:/usr/lib/libnvidia-glvkspirv.so \
+                    --bind=/usr/lib/libnvidia-ml.so:/usr/lib/libnvidia-ml.so \
+                    --bind=/usr/lib/libnvidia-ngx.so:/usr/lib/libnvidia-ngx.so \
+                    --bind=/usr/lib/libnvidia-opticalflow.so:/usr/lib/libnvidia-opticalflow.so \
+                    --bind=/usr/lib/libnvidia-ptxjitcompiler.so:/usr/lib/libnvidia-ptxjitcompiler.so \
+                    --bind=/usr/lib/libnvidia-rtcore.so:/usr/lib/libnvidia-rtcore.so \
+                    --bind=/usr/lib/libnvidia-egl-wayland.so:/usr/lib/libnvidia-egl-wayland.so \
+                    --bind=/usr/lib/libnvidia-tls.so:/usr/lib/libnvidia-tls.so \
+                    --bind=/usr/lib/libnvoptix.so:/usr/lib/libnvoptix.so \
+                    --bind=/usr/lib/modprobe.d/nvidia-utils.conf:/usr/lib/modprobe.d/nvidia-utils.conf \
+                    --bind=/usr/lib/nvidia/wine/_nvngx.dll:/usr/lib/nvidia/wine/_nvngx.dll \
+                    --bind=/usr/lib/nvidia/wine/nvngx.dll:/usr/lib/nvidia/wine/nvngx.dll \
+                    --bind=/usr/lib/nvidia/xorg/libglxserver_nvidia.so:/usr/lib/nvidia/xorg/libglxserver_nvidia.so \
+                    --bind=/usr/lib/vdpau/libvdpau_nvidia.so:/usr/lib/vdpau/libvdpau_nvidia.so \
+                    --bind=/usr/lib/dri/nvidia_drv_video.so:/usr/lib/dri/nvidia_drv_video.so \
+                    --bind=/usr/share/dbus-1/system.d/nvidia-dbus.conf:/usr/share/dbus-1/system.d/nvidia-dbus.conf \
+                    --bind=/usr/share/egl/egl_external_platform.d/15_nvidia_gbm.json:/usr/share/egl/egl_external_platform.d/15_nvidia_gbm.json \
+                    --bind=/usr/share/egl/egl_external_platform.d/10_nvidia_wayland.json:/usr/share/egl/egl_external_platform.d/10_nvidia_wayland.json \
+                    --bind=/usr/share/glvnd/egl_vendor.d/10_nvidia.json:/usr/share/glvnd/egl_vendor.d/10_nvidia.json \
+                    --bind=/usr/share/licenses/nvidia-utils/LICENSE:/usr/share/licenses/nvidia-utils/LICENSE \
+                    --bind=/usr/share/vulkan/icd.d/nvidia_icd.json:/usr/share/vulkan/icd.d/nvidia_icd.json \
+                    --bind=/usr/share/vulkan/implicit_layer.d/nvidia_layers.json:/usr/share/vulkan/implicit_layer.d/nvidia_layers.json \
+                    --property=DeviceAllow="/dev/dri rw" \
+                    --property=DeviceAllow="/dev/shm rw" \
+                    --property=DeviceAllow="/dev/nvidiactl rw" \
+                    --property=DeviceAllow="/dev/nvidia-uvm rw" \
+                    --property=DeviceAllow="/dev/nvidia-uvm-tools rw" \
+                    --property=DeviceAllow="/dev/nvidia-modeset rw" \
+                    --property=DeviceAllow="/dev/dri/renderD128 rw"
+

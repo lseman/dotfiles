@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Generate new combined_init.img
+cat /boot/intel-ucode.img /boot/booster-linux.img > /boot/combined_init.img
+
+echo "New combined_init.img created"
+
+# Generate new kernel_cmd.txt
+kernel_cmd='root=LABEL=SYS add_efi_memmap quiet zswap.enabled=0 preempt=full'
+
+echo $kernel_cmd > kernel_cmd.txt
+
+# Fetching section alignment from the EFI stub
+align="$(objdump -p /usr/lib/systemd/boot/efi/linuxx64.efi.stub | awk '{ if ($1 == "SectionAlignment"){print $2} }')"
+align=$((16#$align))
+
+# Calculating offsets
+osrel_offs="$(objdump -h "/usr/lib/systemd/boot/efi/linuxx64.efi.stub" | awk 'NF==7 {size=strtonum("0x"$3); offset=strtonum("0x"$4)} END {print size + offset}')"
+osrel_offs=$((osrel_offs + align - osrel_offs % align))
+
+cmdline_offs=$((osrel_offs + $(stat -Lc%s "/usr/lib/os-release")))
+cmdline_offs=$((cmdline_offs + align - cmdline_offs % align))
+
+splash_offs=$((cmdline_offs + $(stat -Lc%s "kernel_cmd.txt")))
+splash_offs=$((splash_offs + align - splash_offs % align))
+
+initrd_offs=$((splash_offs + $(stat -Lc%s "/usr/share/systemd/bootctl/splash-arch.bmp")))
+initrd_offs=$((initrd_offs + align - initrd_offs % align))
+
+linux_offs=$((initrd_offs + $(stat -Lc%s "/boot/combined_init.img")))
+linux_offs=$((linux_offs + align - linux_offs % align))
+
+# Using objcopy to add sections and change VMAs
+objcopy \
+    --add-section .osrel="/usr/lib/os-release" --change-section-vma .osrel=$(printf 0x%x $osrel_offs) \
+    --add-section .cmdline="kernel_cmd.txt" --change-section-vma .cmdline=$(printf 0x%x $cmdline_offs) \
+    --add-section .splash="/usr/share/systemd/bootctl/splash-arch.bmp" --change-section-vma .splash=$(printf 0x%x $splash_offs) \
+    --add-section .initrd="/boot/combined_init.img" --change-section-vma .initrd=$(printf 0x%x $initrd_offs) \
+    --add-section .linux="/boot/vmlinuz-linux" --change-section-vma .linux=$(printf 0x%x $linux_offs) \
+    "/usr/lib/systemd/boot/efi/linuxx64.efi.stub" "linux.efi"
+
+echo "Unified kernel image created: linux.efi"
+
+mv linux.efi /boot/EFI/Linux/linux.efi
+
+echo "Unified kernel image moved to /boot/EFI/Linux/linux.efi"
+
+rm kernel_cmd.txt
+
+#efibootmgr --create --disk /dev/nvme0n1p1 --part partition_number --label "Arch Linux" --loader '\EFI\linux\Linux.efi' --unicode

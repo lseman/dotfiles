@@ -1,0 +1,35 @@
+#/bin/sh
+
+# Script for creating a chroot jail to run firefox
+
+# Mount the required filesystems
+export CHROOT=/var/lib/machines/sandbox
+
+# create dirs to mount if they dont exist
+mkdir -p $CHROOT/dev
+mkdir -p $CHROOT/dev/shm
+mkdir -p $CHROOT/dev/pts
+mkdir -p $CHROOT/run/user/1000
+#mkdir -p $CHROOT/run/user/1000/bus
+mkdir -p $CHROOT/dev/dri
+#mkdir -p $CHROOT/run/user/1000/wayland-1
+
+mount -t proc proc $CHROOT/proc
+mount -t sysfs sys $CHROOT/sys
+
+#mount -o bind /dev $CHROOT/dev
+#mount --rbind /dev $CHROOT/de
+
+# mount /run/user/1000 to /var/lib/machines/sandbox/run/user/1000 and everything under it
+mount --rbind /run/user/1000 $CHROOT/run/user/1000
+# remount /run/user/1000/bus as ro
+# mount -o remount,ro,bind $CHROOT/run/user/1000/bus
+#mount -o remount,ro,bind $CHROOT/run/user/1000/wayland-1
+
+# mount /dev/dri to /var/lib/machines/sandbox/dev/dri
+mount --rbind /dev/dri $CHROOT/dev/dri
+
+# mount /dev/wayland-1 as ro
+
+# chroot into the sandbox
+chroot $CHROOT

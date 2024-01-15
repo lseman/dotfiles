@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Directory where your dotfiles are stored
+DOTFILES_DIR=$HOME/.dotfiles
+
+# Array of configuration directory names
+CONFIG_NAMES=("wofi" "kitty" "alacritty" "lf" "nvim" "hypr" "mako" "zathura" "waybar" "wlogout")  # Add your config directory names here
+
+# Declare an associative array for the dotfiles map
+declare -A DOTFILES_MAP
+
+# Populate DOTFILES_MAP based on CONFIG_NAMES
+for name in "${CONFIG_NAMES[@]}"; do
+    DOTFILES_MAP[$HOME/.config/$name]=$DOTFILES_DIR/config/$name
+done
+
+# Function to move files to .dotfiles and create symbolic links
+setup_dotfiles() {
+    mkdir -p $DOTFILES_DIR/config
+    for original in "${!DOTFILES_MAP[@]}"; do
+        if [ -e "$original" ] && [ ! -L "$original" ]; then
+            # Move the file/directory and create a symbolic link
+            mv "$original" "${DOTFILES_MAP[$original]}"
+            ln -sf "${DOTFILES_MAP[$original]}" "$original"
+        fi
+    done
+}
+
+# Function to push changes to GitHub
+push_to_github() {
+    cd $DOTFILES_DIR
+    git add .
+    git commit -m "Update dotfiles"
+    git push origin main
+}
+
+BIN_FOLDER=$HOME/bin
+
+# Function to move files to .dotfiles and create symbolic links, ignoring symbolic links in the bin folder
+setup_dotfiles_bin() {
+
+    for file in "$BIN_FOLDER"/*; do
+        # Check if the file is a symbolic link
+        if [ -L "$file" ]; then
+            continue  # Skip the symbolic link
+        fi
+
+        # Process non-symbolic link files
+        echo "$file"
+        DOTFILES_MAP["$file"]="$DOTFILES_DIR/bin/$(basename "$file")"
+    done
+
+    mkdir -p $DOTFILES_DIR/bin
+    for original in "${!DOTFILES_MAP[@]}"; do
+        if [ -e "$original" ] && [ ! -L "$original" ]; then
+            # Move the file/directory and create a symbolic link
+            mv "$original" "${DOTFILES_MAP[$original]}"
+            ln -sf "${DOTFILES_MAP[$original]}" "$original"
+        fi
+    done
+}
+
+
+# Setup dotfiles and push changes
+setup_dotfiles_bin
+#push_to_github
+

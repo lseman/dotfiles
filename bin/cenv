@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Prompt for virtual environment name
+venv_name=$(gum input --placeholder "Enter virtual environment name")
+
+# Ask for confirmation
+if gum confirm "Do you want to create the virtual environment '$venv_name'?"; then
+    # Create the virtual environment
+    python -m venv /home/seman/env/${venv_name} --system-site-packages
+    echo "Virtual environment '$venv_name' created."
+else
+    echo "Operation cancelled."
+fi
